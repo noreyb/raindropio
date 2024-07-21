@@ -2,9 +2,9 @@ class ItemCreate:
     def __init__(
         self,
         link: str,  # required
-        tags: list[str]=[]
-        collection: int=None
-        title: str=None,
+        tags: list[str] = [],
+        collection: int = None,
+        title: str = None,
     ):
         self.link = link
         self.tags = tags
@@ -26,9 +26,9 @@ class ItemUpdate:
         _id: str,  # required
         link: str,
         tags: list[str],
-        src_collection: int
+        src_collection: int,
         dst_collection: int,
-        title: str=None,
+        title: str = None,
     ):
         self.id = _id
         self.link = link
@@ -47,6 +47,7 @@ class ItemUpdate:
 
     def get_src_collection(self):
         return self.src_collection
+
 
 class ItemBulkUpdate:
     def __init__(
@@ -78,7 +79,7 @@ class RaindropIO:
         self.url = f"{self.base}/{self.endpoint}"
         self.headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.token}"
+            "Authorization": f"Bearer {self.token}",
         }
 
     def _get_tolal_pages(self, collection_id: int):
@@ -105,7 +106,6 @@ class RaindropIO:
                 break
             n_page += 1
         return n_page
-        
 
     def bulk_fetch_random(self, collection_id):
         total_page = self._get_tolal_pages(collection_id)
@@ -113,8 +113,7 @@ class RaindropIO:
 
         return self.fetch(collection_id=collection_id, page=n_page)
 
-
-    def bulk_fetch(self, collection_id: int, page: int=0):
+    def bulk_fetch(self, collection_id: int, page: int = 0):
         # collection_id: raindropio collection id
         # page: page number, default 0 is latest
 
@@ -151,37 +150,30 @@ class RaindropIO:
             "item": _item,
         }
 
-        r = requests.post(
-            f"{self.url}",
-            heders=self.headers,
-            json=body
-        )
+        r = requests.post(f"{self.url}", heders=self.headers, json=body)
 
         if r.status_code != requests.codes.ok:
             print(r.text)
             raise Exception
-        
+
         return r.json()["item"], r.json()["result"]
 
     def _split_list(items: list, max_items=100):
-        return [items[i:i+n] for i in range(0, len(items), n)
+        return [items[i : i + n] for i in range(0, len(items), n)]
 
     def bulk_create(self, items: list[ItemCreate]):
+
         items2d = self._split_list(items)
 
         result = []
         for items1d in items2d:
             tmp = [i.to_dict() for i in items1d]
-        
+
             body = {
                 "items": tmp,
             }
 
-            r = requests.post(
-                f"{self.url}",
-                heders=self.headers,
-                json=body
-            )
+            r = requests.post(f"{self.url}", heders=self.headers, json=body)
 
             if r.status_code != requests.codes.ok:
                 print(r.text)
@@ -189,7 +181,7 @@ class RaindropIO:
             time.sleep(1)
 
             result.append(r.json()["items"])
-        
+
         result = sum(result, [])
         return result
 
@@ -201,16 +193,12 @@ class RaindropIO:
             "item": _item,
         }
 
-        r = requests.put(
-            f"{self.url}/{_id}",
-            heders=self.headers,
-            json=body
-        )
+        r = requests.put(f"{self.url}/{_id}", heders=self.headers, json=body)
 
         if r.status_code != requests.codes.ok:
             print(r.text)
             raise Exception
-        
+
         return r.json()["item"]
 
     def bulk_update(self, items: ItemBulkUpdate, collection_id: int):
@@ -220,15 +208,13 @@ class RaindropIO:
         result = []
         for items1d in items2d:
             tmp = [i.to_dict() for i in items1d]
-        
+
             body = {
                 "items": tmp,
             }
 
             r = requests.put(
-                f"{self.url}/{collection_id}",
-                heders=self.headers,
-                json=body
+                f"{self.url}/{collection_id}", heders=self.headers, json=body
             )
 
             if r.status_code != requests.codes.ok:
@@ -237,7 +223,7 @@ class RaindropIO:
             time.sleep(1)
 
             result.append(r.json()["items"])
-        
+
         result = sum(result, [])
         return result
 
