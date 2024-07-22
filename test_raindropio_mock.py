@@ -15,6 +15,7 @@ def mock_requests():
         mock.codes.ok = 200
         yield mock
 
+
 def test_init(raindrop_io):
     assert raindrop_io.token == "fake_token"
     assert raindrop_io.base == "https://api.raindrop.io/rest/v1"
@@ -24,6 +25,7 @@ def test_init(raindrop_io):
         "Content-Type": "application/json",
         "Authorization": "Bearer fake_token",
     }
+
 
 def test_bulk_fetch(raindrop_io, mock_requests):
     mock_response = MagicMock()
@@ -42,6 +44,7 @@ def test_bulk_fetch(raindrop_io, mock_requests):
         params={"perpage": 50, "page": 0}
     )
 
+
 def test_create(raindrop_io, mock_requests):
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -51,13 +54,13 @@ def test_create(raindrop_io, mock_requests):
     item = ItemCreate(link="https://example.com", tags=["hogehoge", "fuga"])
     result = raindrop_io.create(item)
 
-
     assert result == {"id": 1}
     mock_requests.post.assert_called_once_with(
         "https://api.raindrop.io/rest/v1/raindrop",
         headers=raindrop_io.headers,
         json=item.to_dict()
     )
+
 
 def test_update(raindrop_io, mock_requests):
     mock_response = MagicMock()
