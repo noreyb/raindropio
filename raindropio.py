@@ -1,4 +1,7 @@
 import requests
+import time
+import random
+
 
 class ItemCreate:
     def __init__(
@@ -166,7 +169,7 @@ class RaindropIO:
 
     @staticmethod
     def _split_list(items: list, max_items=100):
-        return [items[i : i + n] for i in range(0, len(items), n)]
+        return [items[i:i + max_items] for i in range(0, len(items), max_items)]
 
     def bulk_create(self, items: list[ItemCreate]):
 
