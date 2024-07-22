@@ -1,3 +1,5 @@
+import requests
+
 class ItemCreate:
     def __init__(
         self,
@@ -48,6 +50,9 @@ class ItemUpdate:
     def get_src_collection(self):
         return self.src_collection
 
+    def get_id(self):
+        return self.id
+
 
 class ItemBulkUpdate:
     def __init__(
@@ -75,7 +80,7 @@ class RaindropIO:
     def __init__(self, token: str):
         self.token = token
         self.base = "https://api.raindrop.io/rest/v1"
-        self.endpoint = "raindrops"
+        self.endpoint = "raindrop"
         self.url = f"{self.base}/{self.endpoint}"
         self.headers = {
             "Content-Type": "application/json",
@@ -92,8 +97,8 @@ class RaindropIO:
 
             r = requests.get(
                 f"{self.url}/{collection_id}",
-                heders=self.headers,
-                param=query,
+                headers=self.headers,
+                params=query,
             )
 
             if r.status_code != requests.codes.ok:
@@ -123,14 +128,15 @@ class RaindropIO:
         }
 
         r = requests.get(
-            f"{self.url}/{collection_id}",
-            heders=self.headers,
-            param=query,
+            f"{self.url}s/{collection_id}",
+            headers=self.headers,
+            params=query,
         )
+        r.raise_for_status()
 
         if r.status_code != requests.codes.ok:
             print(r.text)
-            raise Exception
+            raise Exception(f"API request failed with status code: {r.status_code}")
 
         return r.json()["items"]
 
@@ -146,18 +152,19 @@ class RaindropIO:
     def create(self, item: ItemCreate):
         _item = item.to_dict()
 
-        body = {
-            "item": _item,
-        }
+        body = _item
 
-        r = requests.post(f"{self.url}", heders=self.headers, json=body)
+        print(body)
+
+        r = requests.post(f"{self.url}", headers=self.headers, json=body)
 
         if r.status_code != requests.codes.ok:
             print(r.text)
-            raise Exception
+            raise Exception(f"API request failed with status code: {r.status_code}")
 
-        return r.json()["item"], r.json()["result"]
+        return r.json()["item"]
 
+    @staticmethod
     def _split_list(items: list, max_items=100):
         return [items[i : i + n] for i in range(0, len(items), n)]
 
@@ -173,7 +180,7 @@ class RaindropIO:
                 "items": tmp,
             }
 
-            r = requests.post(f"{self.url}", heders=self.headers, json=body)
+            r = requests.post(f"{self.url}", headers=self.headers, json=body)
 
             if r.status_code != requests.codes.ok:
                 print(r.text)
@@ -186,14 +193,14 @@ class RaindropIO:
         return result
 
     def update(self, item: ItemUpdate):
-        _id = item.get_id
+        _id = item.get_id()
         _item = item.to_dict()
 
         body = {
             "item": _item,
         }
 
-        r = requests.put(f"{self.url}/{_id}", heders=self.headers, json=body)
+        r = requests.put(f"{self.url}/{_id}", headers=self.headers, json=body)
 
         if r.status_code != requests.codes.ok:
             print(r.text)
@@ -214,7 +221,7 @@ class RaindropIO:
             }
 
             r = requests.put(
-                f"{self.url}/{collection_id}", heders=self.headers, json=body
+                f"{self.url}/{collection_id}", headers=self.headers, json=body
             )
 
             if r.status_code != requests.codes.ok:
