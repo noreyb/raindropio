@@ -4,6 +4,8 @@ import random
 
 from domain.raindrop import Raindrop
 from domain.raindropio_url import RaindropIOUrl
+from domain.raindrop_id import RaindropId
+from domain.response_to_raindrop import response_to_raindrop
 
 
 class RaindropIO:
@@ -15,6 +17,29 @@ class RaindropIO:
             "Authorization": f"Bearer {self.token}",
         }
         self.MAX_ITEMS_PER_REQUEST = 100
+
+    def _make_request(self, method: str, url: str, body=None, query=None):
+        if method == "GET":
+            if query:
+                r = requests.get(url, headers=self.headers, params=query)
+            else:
+                r = requests.get(url, headers=self.headers)
+        elif method == "POST":
+            r = requests.post(url, headers=self.headers, json=body)
+        elif method == "PUT":
+            r = requests.put(url, headers=self.headers, json=body)
+        elif method == "DELETE":
+            r = requests.delete(url, headers=self.headers)
+        else:
+            raise Exception("Invalid method")
+
+        if r.status_code != requests.codes.ok:
+            print(r.text)
+            raise Exception(
+                f"API request failed with status code: {r.status_code}"
+            )
+
+        return r
 
     def _get_total_pages(self, collection_id: int):
         page = 0
@@ -32,63 +57,58 @@ class RaindropIO:
             items[i:i + max_items] for i in range(0, len(items), max_items)
         ]
 
-    def get(self, raindrop: Raindrop):
-        _id = raindrop.get_id()
-
-        r = requests.get(
-            f"{self.url.get_single()}/{_id}",
-            headers=self.headers,
+    def get(self, _id: RaindropId) -> Raindrop:
+        r = self._make_request(
+            method="GET",
+            url=f"{self.url.get_single()}/{_id.value}",
         )
+        return response_to_raindrop(r.json()["item"])
 
-        if r.status_code != requests.codes.ok:
-            print(r.text)
-            raise Exception(
-                f"API request failed with status code: {r.status_code}"
-            )
+    @staticmethod
+    def _make_request_body_create(raindrop: Raindrop):
+        if raindrop.link is None:
+            raise Exception("Raindrop.link is required.")
+        body = {
+            "pleaseParse": {},
+            "link": raindrop.link,
+        }
+        if raindrop.title:
+            body["title"] = raindrop.title
+        if raindrop.collection_id:
+            body["collection"] = {"$id": raindrop.collection_id}
+        if raindrop.tags:
+            body["tags"] = raindrop.tags
 
-        return r.json()["item"]
+        return body
 
-    def create(self, raindrop: Raindrop):
-        body = raindrop.create()
-        r = requests.post(
-            f"{self.url.get_single()}",
-            headers=self.headers,
-            json=body,
+    def create(self, raindrop: Raindrop) -> Raindrop:
+        body = self._make_request_body_create(raindrop)
+        r = self._make_request(
+            method="POST",
+            url=self.url.get_single(),
+            body=body,
         )
+        return response_to_raindrop(r.json()["item"])
 
-        if r.status_code != requests.codes.ok:
-            print(r.text)
-            raise Exception(
-                f"API request failed with status code: {r.status_code}")
-
-        return r.json()["item"]
-
-    def update_tags(self, raindrop: Raindrop):
-        _id, body = raindrop.update(which="tags")
-        r = requests.put(
-            f"{self.url.get_single()}/{_id}",
-            headers=self.headers,
-            json=body,
+    def update_tags(self, _id: RaindropId, tags: list[str]) -> Raindrop:
+        body = {
+            "tags": tags,
+        }
+        r = self._make_request(
+            method="PUT",
+            url=f"{self.url.get_single()}/{_id.value}",
+            body=body,
         )
-        if r.status_code != requests.codes.ok:
-            print(r.text)
-            raise Exception
+        return response_to_raindrop(r.json()["item"])
 
-        return r.json()["item"]
-
-    def delete(self, raindrop: Raindrop):
-        _id = raindrop.delete()
-        r = requests.delete(
-            f"{self.url.get_single()}/{_id}",
-            headers=self.headers,
+    def delete(self, _id: RaindropId) -> bool:
+        r = self._make_request(
+            method="DELETE",
+            url=f"{self.url.get_single()}/{_id.value}",
         )
-        if r.status_code != requests.codes.ok:
-            print(r.text)
-            raise Exception
+        return r.json()["result"]
 
-        return r.json()["item"]
-
-    def bulk_get(self, collection_id: int, page: int = 0):
+    def bulk_get(self, collection_id: int, page: int = 0) -> list[Raindrop]:
         # collection_id: raindropio collection id
         # page: page number, default 0 is latest
 
@@ -96,21 +116,14 @@ class RaindropIO:
             "perpage": 50,
             "page": page,
         }
-
-        r = requests.get(
-            f"{self.url.get_bulk()}/{collection_id}",
-            headers=self.headers,
-            params=query,
+        r = self._make_request(
+            method="GET",
+            url=f"{self.url.get_bulk()}/{collection_id}",
+            query=query,
         )
+        return [response_to_raindrop(item) for item in r.json()["items"]]
 
-        if r.status_code != requests.codes.ok:
-            print(r.text)
-            raise Exception(
-                f"API request failed with status code: {r.status_code}")
-
-        return r.json()["items"]
-
-    def bulk_get_all(self, collection_id: int):
+    def bulk_get_all(self, collection_id: int) -> list[Raindrop]:
         total_pages = self._get_total_pages(collection_id)
 
         result = []
@@ -119,14 +132,14 @@ class RaindropIO:
             result.extend(items)
         return result
 
-    def bulk_get_random(self, collection_id):
+    def bulk_get_random(self, collection_id) -> list[Raindrop]:
         total_pages = self._get_total_pages(collection_id)
         if total_pages == 0:
             return []
         random_page = random.randint(0, total_pages - 1)
         return self.bulk_get(collection_id=collection_id, page=random_page)
 
-    def bulk_create(self, raindrops: list[Raindrop]):
+    def bulk_create(self, raindrops: list[Raindrop]) -> list[Raindrop]:
         # APIの制限に合わせて、リストを分割する（例：最大100項目ずつ）
         raindrop_chunks = self._split_list(
             raindrops, max_items=self.MAX_ITEMS_PER_REQUEST
@@ -139,35 +152,29 @@ class RaindropIO:
 
         return results
 
-    def _bulk_create(self, raindrops: list[Raindrop]):
+    def _bulk_create(self, raindrops: list[Raindrop]) -> list[Raindrop]:
         # リクエストボディの作成
-        items = [raindrop.create() for raindrop in raindrops]
+        items = [
+            self._make_request_body_create(raindrop) for raindrop in raindrops
+        ]
         body = {
             "items": items
         }
 
-        # APIリクエストの送信
-        r = requests.post(
-            f"{self.url.get_bulk()}",
-            headers=self.headers,
-            json=body
+        r = self._make_request(
+            method="POST",
+            url=self.url.get_bulk(),
+            body=body,
         )
-
-        if r.status_code != requests.codes.ok:
-            print(r.text)
-            raise Exception(
-                f"API request failed with status code: {r.status_code}")
-
-        # 作成されたRaindropオブジェクトのリストを返す
-        return r.json()["items"]
+        return [response_to_raindrop(item) for item in r.json()["items"]]
 
     def bulk_update_tags(
             self,
             src_collection_id: int,
             tags: list[str],
             raindrops: list[Raindrop],
-            overwrite=False,
-    ):
+            overwrite=False,  # Add tags to existing tags if false, otherwise overwrite
+    ) -> None:
         if overwrite:
             self.bulk_update(
                 src_collection_id,
@@ -189,19 +196,33 @@ class RaindropIO:
             raindrops: list[Raindrop],
             tags=None,
             dst_collection_id=None,
-    ):
+    ) -> None:
         raindrop_chunks = self._split_list(
             raindrops, max_items=self.MAX_ITEMS_PER_REQUEST
         )
 
-        n_modified = 0
         for chunk in raindrop_chunks:
-            n_modified += self._bulk_update(
+            self._bulk_update(
                 src_collection_id, chunk, tags, dst_collection_id
             )
-            # results.extend(result)
 
-        return n_modified
+        return None
+
+    @staticmethod
+    def _make_request_body_bulk_update(
+        raindrops: list[Raindrop],
+        tags: list[str] = None,
+        dst_collection_id: int = None,
+    ) -> dict:
+        ids = [raindrop._id for raindrop in raindrops]
+        body = {
+            "ids": ids,
+        }
+        if tags is not None:
+            body["tags"] = tags
+        if dst_collection_id:
+            body["collection"] = {"$id": dst_collection_id}
+        return body
 
     def _bulk_update(
             self,
@@ -209,28 +230,19 @@ class RaindropIO:
             raindrops: list[Raindrop],
             tags: list[str] = None,
             dst_collection_id: int = None,
-    ):
-        body = {}
-        ids = [raindrop.get_id() for raindrop in raindrops]
-        body["ids"] = ids
-        if tags is not None:
-            body["tags"] = tags
-        if dst_collection_id:
-            body["collection"] = {"$id": dst_collection_id}
-
-        r = requests.put(
-            f"{self.url.get_bulk()}/{src_collection_id}",
-            headers=self.headers,
-            json=body
+    ) -> None:
+        body = self._make_request_body_bulk_update(
+            raindrops,
+            tags,
+            dst_collection_id,
         )
 
-        if r.status_code != requests.codes.ok:
-            print(r.text)
-            raise Exception(
-                f"API request failed with status code: {r.status_code}"
-            )
-
-        return r.json()["modified"]
+        _ = self._make_request(
+            method="PUT",
+            url=f"{self.url.get_bulk()}/{src_collection_id}",
+            body=body
+        )
+        return None
 
 
 if __name__ == "__main__":
