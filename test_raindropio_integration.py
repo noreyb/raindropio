@@ -1,10 +1,12 @@
-import pytest
-from repository.raindropio import RaindropIO
-from domain.raindrop import Raindrop
-from domain.raindrop_id import RaindropId
-from dotenv import load_dotenv
 import os
 import time
+
+import pytest
+from dotenv import load_dotenv
+
+from domain.raindrop import Raindrop
+from domain.raindrop_id import RaindropId
+from repository.raindropio import RaindropIO
 
 load_dotenv()
 
@@ -16,16 +18,14 @@ def raindropio():
 
 
 def test_create_get_update_delete_flow(raindropio):
-    TEST_COLLECTION_ID_SINGLE = os.getenv(
-        "TEST_COLLECTION_ID_SINGLE"
-    )
+    TEST_COLLECTION_ID_SINGLE = os.getenv("TEST_COLLECTION_ID_SINGLE")
 
     # Create
     new_raindrop = Raindrop(
         collection_id=TEST_COLLECTION_ID_SINGLE,
         link="https://example.com",
         # title="Integration Test Raindrop",
-        tags=["test", "integration"]
+        tags=["test", "integration"],
     )
     created = raindropio.create(new_raindrop)
     assert created.link == "https://example.com"
@@ -57,9 +57,7 @@ def test_create_get_update_delete_flow(raindropio):
 
 
 def test_bulk_get(raindropio):
-    TEST_COLLECTION_ID_BULK = os.getenv(
-        "TEST_COLLECTION_ID_BULK"
-    )
+    TEST_COLLECTION_ID_BULK = os.getenv("TEST_COLLECTION_ID_BULK")
 
     # test collection has 3 raindrops
     # http://example.com/
@@ -73,9 +71,7 @@ def test_bulk_get(raindropio):
 
 
 def test_bulk_get_integration(raindropio):
-    TEST_COLLECTION_ID_BULK = os.getenv(
-        "TEST_COLLECTION_ID_BULK"
-    )
+    TEST_COLLECTION_ID_BULK = os.getenv("TEST_COLLECTION_ID_BULK")
     result = raindropio.bulk_get(collection_id=TEST_COLLECTION_ID_BULK, page=0)
     time.sleep(1)
     assert isinstance(result, list)
@@ -120,8 +116,7 @@ def test_bulk_get_random_consistency_integration(raindropio):
 
     # 少なくとも2つ以上の異なる結果が得られることを期待
     # (注: 小さなコレクションや運が悪い場合、このテストは失敗する可能性があります)
-    assert len(
-        results) > 1, "Random selection doesn't seem to be working correctly"
+    assert len(results) > 1, "Random selection doesn't seem to be working correctly"
 
 
 def test_bulk_get_random_empty_collection_integration(raindropio):
@@ -135,10 +130,18 @@ def test_bulk_get_random_empty_collection_integration(raindropio):
 def test_bulk__create_integration(raindropio):
     test_collection_id = os.getenv("TEST_COLLECTION_ID_BULK")
     raindrops = [
-        Raindrop(collection_id=test_collection_id, link="https://example1.com",
-                 title="Integration Test 1", tags=["test", "integration"]),
-        Raindrop(collection_id=test_collection_id, link="https://example2.com",
-                 title="Integration Test 2", tags=["test", "integration"])
+        Raindrop(
+            collection_id=test_collection_id,
+            link="https://example1.com",
+            title="Integration Test 1",
+            tags=["test", "integration"],
+        ),
+        Raindrop(
+            collection_id=test_collection_id,
+            link="https://example2.com",
+            title="Integration Test 2",
+            tags=["test", "integration"],
+        ),
     ]
 
     result = raindropio._bulk_create(raindrops)
@@ -163,7 +166,8 @@ def test_bulk_create_integration(raindropio):
             collection_id=test_collection_id,
             link=f"https://example{i}.com",
             title=f"Large Integration Test {i}",
-            tags=["test", "integration", "large"])
+            tags=["test", "integration", "large"],
+        )
         for i in range(150)
     ]
 
@@ -189,7 +193,6 @@ def test_bulk_update_tags_integration(raindropio):
             title=f"Bulk Update Test {i}",
             tags=["test", "integration"],
         )
-
         for i in range(5)
     ]
     created_raindrops = raindropio.bulk_create(raindrops)
@@ -197,7 +200,8 @@ def test_bulk_update_tags_integration(raindropio):
     # Update tags
     new_tags = ["updated", "bulk"]
     raindropio.bulk_update_tags(
-        test_collection_id, new_tags, created_raindrops, overwrite=True)
+        test_collection_id, new_tags, created_raindrops, overwrite=True
+    )
     time.sleep(5)
 
     # Verify updates
@@ -205,7 +209,8 @@ def test_bulk_update_tags_integration(raindropio):
     for raindrop in updated_raindrops:
         if raindrop.title.startswith("Bulk Update Test"):
             assert set(raindrop.tags) == set(
-                new_tags), f"Tags not updated for {raindrop.title}"
+                new_tags
+            ), f"Tags not updated for {raindrop.title}"
 
     # Clean up
     for raindrop in created_raindrops:
