@@ -145,6 +145,7 @@ class RaindropIO:
         results = []
         for chunk in raindrop_chunks:
             result = self._bulk_create(chunk)
+            time.sleep(1)
             results.extend(result)
 
         return results
